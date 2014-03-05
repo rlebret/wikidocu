@@ -167,7 +167,7 @@ setmetatable(wikidocu, {
                         end
 
                         local ptr_ngram = ngram:data()
-                        while true
+                        while true do
                            local k
                            if weight then
                               k = sampler()
