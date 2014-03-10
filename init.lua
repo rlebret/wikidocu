@@ -170,9 +170,9 @@ setmetatable(wikidocu, {
                         while true do
                            local k
                            if weight then
-                              k = sampler()
+                              k = sampler()-1
                            else
-                              k = math.random(list.ndoc)
+                              k = math.random(list.ndoc)-1
                            end
                            -- get random line from that doc
                            local l = math.random(list.doc_size[k])-1
@@ -283,7 +283,19 @@ function wikidocu.load(filename, threshold, verbose)
    local p_struct = ffi.typeof("Wikidoc*")
 
    -- create Wikidoc struct
-   local ptr_list = ffi.cast(p_struct,ffi.C.malloc(ffi.sizeof(struct)))
+   local ptr_list = ffi.gc(ffi.cast(p_struct,ffi.C.malloc(ffi.sizeof(struct))), function(self)
+                                                                                    print("Free Wikidoc* struct")
+                                                                                    local ptr_list = ffi.cast(p_struct,self)
+                                                                                    ffi.C.free(ptr_list.full_idx)
+                                                                                    ffi.C.free(ptr_list.full_line_size)
+                                                                                    ffi.C.free(ptr_list.line)
+                                                                                    ffi.C.free(ptr_list.doc)
+                                                                                    ffi.C.free(ptr_list.doc_id)
+                                                                                    ffi.C.free(ptr_list.doc_size)
+                                                                                    ffi.C.free(ptr_list.line_size)
+                                                                                    ffi.C.free(self)
+                                                                                 end)
+
    -- allocation
    ptr_list.ndoc = ndoc
    ptr_list.nline = nline
