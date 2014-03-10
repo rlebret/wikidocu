@@ -222,7 +222,7 @@ setmetatable(wikidocu, {
                         ffi.C.free(list.line_size)
                         ffi.C.free(list)
                      end
-                     
+
                      setmetatable(data,{
                            __index = function(self, index)
                                        return data:doc(index)
@@ -283,9 +283,7 @@ function wikidocu.load(filename, threshold, verbose)
    local p_struct = ffi.typeof("Wikidoc*")
 
    -- create Wikidoc struct
-   local list = ffi.C.malloc(ffi.sizeof(struct))
-   -- cast   
-   local ptr_list = ffi.cast(p_struct,struct)
+   local ptr_list = ffi.cast(p_struct,ffi.C.malloc(ffi.sizeof(struct)))
    -- allocation
    ptr_list.ndoc = ndoc
    ptr_list.nline = nline
