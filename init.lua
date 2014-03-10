@@ -211,6 +211,18 @@ setmetatable(wikidocu, {
                         return list.doc_size[index-1]
                      end
 
+                     function data:free()
+                        print("Free Wikidoc* struct")
+                        ffi.C.free(list.full_idx)
+                        ffi.C.free(list.full_line_size)
+                        ffi.C.free(list.line)
+                        ffi.C.free(list.doc)
+                        ffi.C.free(list.doc_id)
+                        ffi.C.free(list.doc_size)
+                        ffi.C.free(list.line_size)
+                        ffi.C.free(list)
+                     end
+                     
                      setmetatable(data,{
                            __index = function(self, index)
                                        return data:doc(index)
@@ -263,7 +275,6 @@ function wikidocu.size(filename, threshold, verbose)
    return ndoc,nline,totallength
 end
 
-
 function wikidocu.load(filename, threshold, verbose)
 
    local ndoc, nline, totallength = wikidocu.size(filename, threshold)
@@ -271,20 +282,10 @@ function wikidocu.load(filename, threshold, verbose)
    local struct = ffi.typeof("Wikidoc")
    local p_struct = ffi.typeof("Wikidoc*")
 
-   --local list = ffi.C.malloc(ffi.sizeof(struct))
-   -- cast    
-   local ptr_list = ffi.gc(ffi.cast(p_struct,ffi.C.malloc(ffi.sizeof(struct))), function(self)
-                                                                                    print("Free Wikidoc* struct")
-                                                                                    local ptr_list = ffi.cast(p_struct,self)
-                                                                                    ffi.C.free(ptr_list.full_idx)
-                                                                                    ffi.C.free(ptr_list.full_line_size)
-                                                                                    ffi.C.free(ptr_list.line)
-                                                                                    ffi.C.free(ptr_list.doc)
-                                                                                    ffi.C.free(ptr_list.doc_id)
-                                                                                    ffi.C.free(ptr_list.doc_size)
-                                                                                    ffi.C.free(ptr_list.line_size)
-                                                                                    ffi.C.free(self)
-                                                                                 end)
+   -- create Wikidoc struct
+   local list = ffi.C.malloc(ffi.sizeof(struct))
+   -- cast   
+   local ptr_list = ffi.cast(p_struct,struct)
    -- allocation
    ptr_list.ndoc = ndoc
    ptr_list.nline = nline
