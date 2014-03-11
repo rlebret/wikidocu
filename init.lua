@@ -39,6 +39,8 @@ c_p_intstorage = ffi.typeof("THIntStorage*")
 c_p_floatstorage = ffi.typeof("THFloatStorage*")
 c_p_longtensor = ffi.typeof("THLongTensor*")
 c_p_longstorage = ffi.typeof("THLongStorage*")
+struct = ffi.typeof("Wikidoc")
+p_struct = ffi.typeof("Wikidoc*")
 
 
 -- scan files into directory
@@ -54,15 +56,52 @@ end
 
 wikidocu = {}
 setmetatable(wikidocu, {
-        __call = function(self, params)
-                     local filename = params.filename
-                     local threshold = params.threshold
-                     local weight = params.weighted
-                     local verbose = params.verbose
-
-                     local list = wikidocu.load(filename, threshold, verbose)
+        __call = function(self, filename, threshold, weight, verbose)
 
                      local data = {}
+                     local weight = weight or false
+                     local verbose = verbose or false
+                     -- get size
+                     local ndoc, nline, totallength = wikidocu.size(filename, threshold, verbose)
+
+                     -- create C array
+                     -- for indices
+                     local ptrdoc = ffi.cast(c_ppp_int, ffi.C.malloc(ffi.sizeof(c_pp_int)*ndoc))
+                     local ptrline = ffi.cast(c_pp_int, ffi.C.malloc(ffi.sizeof(c_p_int)*nline))
+                     local ptrfull_idx = ffi.cast(c_p_int, ffi.C.malloc(ffi.sizeof(c_int)*totallength))
+                     -- for size
+                     local ptrdoc_size  = ffi.cast(c_p_int, ffi.C.malloc(ffi.sizeof(c_int)*ndoc))
+                     local ptrline_size  = ffi.cast(c_pp_int, ffi.C.malloc(ffi.sizeof(c_p_int)*ndoc))
+                     local ptrfull_line_size  = ffi.cast(c_p_int, ffi.C.malloc(ffi.sizeof(c_int)*nline))
+                     -- for id
+                     local ptrdoc_id  = ffi.cast(c_p_int, ffi.C.malloc(ffi.sizeof(c_int)*ndoc))
+
+                     -- load data
+                     wikidocu.load(ptrfull_idx, ptrfull_line_size, ptrline, ptrdoc, ptrdoc_id, ptrdoc_size, ptrline_size, filename, threshold, verbose)
+
+                     -- create Wikidoc struct
+                     local list = ffi.cast(p_struct, ffi.C.malloc(ffi.sizeof(struct)))
+                     list.ndoc = ndoc
+                     list.nline = nline
+                     list.ntoken = totallength
+                     list.full_idx = ptrfull_idx
+                     list.full_line_size = ptrfull_line_size
+                     list.line = ptrline
+                     list.doc = ptrdoc
+                     list.doc_id = ptrdoc_id
+                     list.doc_size = ptrdoc_size
+                     list.line_size = ptrline_size
+
+                     function data:free()
+                        ffi.C.free(ptrfull_idx)
+                        ffi.C.free(ptrline)
+                        ffi.C.free(ptrdoc)
+                        ffi.C.free(ptrfull_line_size)
+                        ffi.C.free(ptrdoc_id)
+                        ffi.C.free(ptrdoc_size)
+                        ffi.C.free(ptrline_size)
+                        ffi.C.free(list)
+                     end
 
                      function data:weight()
                         local s = torch.IntStorage()
@@ -180,6 +219,7 @@ setmetatable(wikidocu, {
                            if list.line_size[k][l] >= size then
                               -- get random ngram from that line
                               local n = math.random(list.line_size[k][l]-size)
+                             -- print(k,l,n,ngram:size())
                               ffi.copy(ptr_ngram,list.doc[k][l]+n,size*ffi.sizeof(c_int))
                               break
                            end
@@ -211,18 +251,6 @@ setmetatable(wikidocu, {
                         return list.doc_size[index-1]
                      end
 
-                     function data:free()
-                        print("Free Wikidoc* struct")
-                        ffi.C.free(list.full_idx)
-                        ffi.C.free(list.full_line_size)
-                        ffi.C.free(list.line)
-                        ffi.C.free(list.doc)
-                        ffi.C.free(list.doc_id)
-                        ffi.C.free(list.doc_size)
-                        ffi.C.free(list.line_size)
-                        ffi.C.free(list)
-                     end
-
                      setmetatable(data,{
                            __index = function(self, index)
                                        return data:doc(index)
@@ -244,9 +272,10 @@ function wikidocu.size(filename, threshold, verbose)
    local files = scandir(filename)
    -- loop over files
    for f=1,#files do
+      if verbose then print("# Reading "..files[f]) end
       local fstream = torch.DiskFile(files[f],'r'):binary()
       fstream:quiet()
-      local position = 1
+
       while not fstream:hasError() do
          -- skip doc id
          fstream:readInt()
@@ -257,8 +286,7 @@ function wikidocu.size(filename, threshold, verbose)
             for i=1,doclen do
                -- get number of tokens
                local linelen = fstream:readInt()
-               position = fstream:position()+linelen*ffi.sizeof(c_int)   
-               fstream:seek(position)
+               fstream:seek(fstream:position()+linelen*ffi.sizeof(c_int) )
                if linelen > threshold then
                   totallength = totallength + linelen 
                   nline=nline+1
@@ -275,41 +303,8 @@ function wikidocu.size(filename, threshold, verbose)
    return ndoc,nline,totallength
 end
 
-function wikidocu.load(filename, threshold, verbose)
 
-   local ndoc, nline, totallength = wikidocu.size(filename, threshold)
-
-   local struct = ffi.typeof("Wikidoc")
-   local p_struct = ffi.typeof("Wikidoc*")
-
-   -- create Wikidoc struct
-   local ptr_list = ffi.gc(ffi.cast(p_struct,ffi.C.malloc(ffi.sizeof(struct))), function(self)
-                                                                                    print("Free Wikidoc* struct")
-                                                                                    local ptr_list = ffi.cast(p_struct,self)
-                                                                                    ffi.C.free(ptr_list.full_idx)
-                                                                                    ffi.C.free(ptr_list.full_line_size)
-                                                                                    ffi.C.free(ptr_list.line)
-                                                                                    ffi.C.free(ptr_list.doc)
-                                                                                    ffi.C.free(ptr_list.doc_id)
-                                                                                    ffi.C.free(ptr_list.doc_size)
-                                                                                    ffi.C.free(ptr_list.line_size)
-                                                                                    ffi.C.free(self)
-                                                                                 end)
-
-   -- allocation
-   ptr_list.ndoc = ndoc
-   ptr_list.nline = nline
-   ptr_list.ntoken = totallength
-   -- for indices
-   ptr_list.doc  = ffi.cast(c_ppp_int, ffi.C.malloc(ffi.sizeof(c_pp_int)*ndoc))
-   ptr_list.line = ffi.cast(c_pp_int, ffi.C.malloc(ffi.sizeof(c_p_int)*nline))
-   ptr_list.full_idx = ffi.cast(c_p_int, ffi.C.malloc(ffi.sizeof(c_int)*totallength))
-   -- for size
-   ptr_list.doc_size  = ffi.cast(c_p_int, ffi.C.malloc(ffi.sizeof(c_int)*ndoc))
-   ptr_list.line_size  = ffi.cast(c_pp_int, ffi.C.malloc(ffi.sizeof(c_p_int)*ndoc))
-   ptr_list.full_line_size  = ffi.cast(c_p_int, ffi.C.malloc(ffi.sizeof(c_int)*nline))
-   -- for id
-   ptr_list.doc_id  = ffi.cast(c_p_int, ffi.C.malloc(ffi.sizeof(c_int)*ndoc))
+function wikidocu.load(ptrfull_idx, ptrfull_line_size, ptrline, ptrdoc, ptrdoc_id, ptrdoc_size, ptrline_size, filename, threshold, verbose)
 
    local idx = torch.IntStorage()
    local idx_ptr = ffi.cast('THIntStorage*', torch.pointer(idx))
@@ -318,23 +313,25 @@ function wikidocu.load(filename, threshold, verbose)
    if verbose then print('# Reading '..filename) end
    local files = scandir(filename)
 
-   local idoc,iline,itoken,idoclen = 0,0,0,0
+   local idoc,iline,itoken = 0,0,0,0
    -- loop over files
    for f=1,#files do
+      if verbose then  print("# Reading "..files[f]) end
       local fstream = torch.DiskFile(files[f],'r'):binary()
       fstream:quiet()
 
       while not fstream:hasError() do
          -- skip doc id
          local id=fstream:readInt()
-         ptr_list.doc_id[idoc]=id
 
          -- get doc number of lines
          local doclen = fstream:readInt()
-         ptr_list.line_size[idoc] = ptr_list.full_line_size+idoclen
-         ptr_list.doc[idoc] = ptr_list.line+iline
 
          if not fstream:hasError() then
+
+            ptrline_size[idoc] = ptrfull_line_size+iline
+            ptrdoc[idoc] = ptrline+iline
+
             local found=false
             local itr=0
             for i=1,doclen do
@@ -343,13 +340,13 @@ function wikidocu.load(filename, threshold, verbose)
                -- check whether the
                if linelen > threshold then
                   idx_ptr.size = linelen
-                  idx_ptr.data = ptr_list.full_idx+itoken
-                  ptr_list.line[iline] = idx_ptr.data
+                  idx_ptr.data = ptrfull_idx+itoken
+                  ptrline[iline] = idx_ptr.data
 
                   -- read indices from file
                   fstream:readInt(idx)
                   -- store line size
-                  ptr_list.full_line_size[iline] = linelen
+                  ptrfull_line_size[iline] = linelen
                   -- increment line iterator
                   iline=iline+1
                   itr=itr+1
@@ -362,9 +359,9 @@ function wikidocu.load(filename, threshold, verbose)
                end
             end
             if found then 
-               ptr_list.doc_size[idoc] = itr
+               ptrdoc_size[idoc]=itr
+               ptrdoc_id[idoc]=id
                idoc=idoc+1
-               idoclen=idoclen+itr
             end
          end
       end
@@ -372,5 +369,4 @@ function wikidocu.load(filename, threshold, verbose)
       fstream:close()
    end
    if verbose then print("# done") end
-   return ptr_list
 end
