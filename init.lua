@@ -218,7 +218,7 @@ setmetatable(wikidocu, {
                            -- check whether that line is greater or equal than the required size
                            if list.line_size[k][l] >= size then
                               -- get random ngram from that line
-                              local n = math.random(list.line_size[k][l]-size)
+                              local n = math.random(0,list.line_size[k][l]-size)
                              -- print(k,l,n,ngram:size())
                               ffi.copy(ptr_ngram,list.doc[k][l]+n,size*ffi.sizeof(c_int))
                               break
