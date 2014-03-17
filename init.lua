@@ -327,7 +327,7 @@ function wikidocu.load(ptrfull_idx, ptrfull_line_size, ptrline, ptrdoc, ptrdoc_i
          -- get doc number of lines
          local doclen = fstream:readInt()
 
-         if not fstream:hasError() then
+         if not fstream:hasError() and doclen>0 then
 
             ptrline_size[idoc] = ptrfull_line_size+iline
             ptrdoc[idoc] = ptrline+iline
