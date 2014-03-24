@@ -190,9 +190,9 @@ setmetatable(wikidocu, {
                            -- store docid
                            docid[i] = list.doc_id[k]
                            -- get random line from that doc
-                           local l = math.random(list.doc_size[k])-1
+                           local l = torch.random(list.doc_size[k])-1
                            -- get random ngram from that line
-                           local n = math.random(list.line_size[k][l]-threshold)-1
+                           local n = torch.random(list.line_size[k][l]-threshold)-1
                            ffi.copy(ptr_ngram+(i-1)*threshold,list.doc[k][l]+n,threshold*ffi.sizeof(c_int))
                            nextword[i] = list.doc[k][l][n+threshold]
                         end
@@ -211,14 +211,14 @@ setmetatable(wikidocu, {
                            if weight then
                               k = sampler()-1
                            else
-                              k = math.random(list.ndoc)-1
+                              k = torch.random(list.ndoc)-1
                            end
                            -- get random line from that doc
-                           local l = math.random(list.doc_size[k])-1
+                           local l = torch.random(list.doc_size[k])-1
                            -- check whether that line is greater or equal than the required size
                            if list.line_size[k][l] >= size then
                               -- get random ngram from that line
-                              local n = math.random(0,list.line_size[k][l]-size)
+                              local n = torch.random(0,list.line_size[k][l]-size)
                              -- print(k,l,n,ngram:size())
                               ffi.copy(ptr_ngram,list.doc[k][l]+n,size*ffi.sizeof(c_int))
                               break
