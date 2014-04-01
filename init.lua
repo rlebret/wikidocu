@@ -248,14 +248,14 @@ setmetatable(wikidocu, {
                                  -- get random ngram from that line
                                  local n = torch.random(0,list.line_size[k][l]-size)
                                  -- looking for unknow 
-                                 local unkn=false
+                                 local isunkn=false
                                  for i=0,size-1 do
                                     if list.doc[k][l][n+i]==unkn then
-                                       unkn=true
+                                       isunkn=true
                                        break
                                     end
                                  end
-                                 if not unkn then
+                                 if not isunkn then
                                    -- print(k,l,n,ngram:size())
                                     ffi.copy(ptr_ngram,list.doc[k][l]+n,size*ffi.sizeof(c_int))
                                     break
