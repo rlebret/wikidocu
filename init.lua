@@ -227,6 +227,44 @@ setmetatable(wikidocu, {
                         return ngram
                      end
 
+                     function data:sample_nounkn(t,size,unkn)
+                           local ngram = t:resize(size)
+                           if ngram:type()~="torch.IntTensor" then
+                              ngram = ngram:int()
+                           end
+
+                           local ptr_ngram = ngram:data()
+                           while true do
+                              local k
+                              if weight then
+                                 k = sampler()-1
+                              else
+                                 k = torch.random(list.ndoc)-1
+                              end
+                              -- get random line from that doc
+                              local l = torch.random(list.doc_size[k])-1
+                              -- check whether that line is greater or equal than the required size
+                              if list.line_size[k][l] >= size then
+                                 -- get random ngram from that line
+                                 local n = torch.random(0,list.line_size[k][l]-size)
+                                 -- looking for unknow 
+                                 local unkn=false
+                                 for i=0,size-1 do
+                                    if list.doc[k][l][n+i]==unkn then
+                                       unkn=true
+                                       break
+                                    end
+                                 end
+                                 if not unkn then
+                                   -- print(k,l,n,ngram:size())
+                                    ffi.copy(ptr_ngram,list.doc[k][l]+n,size*ffi.sizeof(c_int))
+                                    break
+                                 end
+                              end
+                           end
+                           return ngram
+                        end
+
                      function data:struct()
                         return list
                      end
