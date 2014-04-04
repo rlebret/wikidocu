@@ -250,7 +250,7 @@ setmetatable(wikidocu, {
                                  -- looking for unknow 
                                  local isunkn=false
                                  for i=0,size-1 do
-                                    if list.doc[k][l][n+i]==unkn then
+                                    if list.doc[k][l][n+i]>unkn then
                                        isunkn=true
                                        break
                                     end
