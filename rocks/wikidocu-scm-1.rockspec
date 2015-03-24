@@ -2,7 +2,7 @@ package = "wikidocu"
 version = "scm-1"
 
 source = {
-   url = "git://github.com/rlebret/wikidocu",
+   url = "/idiap/home/rlebret/soft/torch-packages/wikidocu",
    branch = "master",
 }
 

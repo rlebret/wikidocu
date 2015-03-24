@@ -227,6 +227,78 @@ setmetatable(wikidocu, {
                         return ngram
                      end
 
+                     function data:sentence(s,size)
+                        local size = size or 128
+                        local sent = t:resize(size)
+                        if sent:type()~="torch.IntTensor" then
+                           sent = sent:int()
+                        end
+
+                        local ptr_sent = sent:data()
+                        local k
+                        if weight then
+                           k = sampler()-1
+                        else
+                           k = torch.random(list.ndoc)-1
+                        end
+                        -- get random line from that doc
+                        local l = torch.random(list.doc_size[k])-1
+                        -- get line size
+                        local linesz = list.line_size[k][l]
+                        ffi.copy(ptr_sent,list.doc[k][l],linesz*ffi.sizeof(c_int))
+
+                        return sent,k
+                     end
+
+                     function data:sample_with_context(t,size,cxt,cxtsz,padding)
+                        local ngram = t:resize(size)
+                        if ngram:type()~="torch.IntTensor" then
+                           ngram = ngram:int()
+                        end
+
+                        local ptr_ngram = ngram:data()
+                        while true do
+                           local k
+                           if weight then
+                              k = sampler()-1
+                           else
+                              k = torch.random(list.ndoc)-1
+                           end
+                           -- get random line from that doc
+                           local l = torch.random(list.doc_size[k])-1
+                           local linesz = list.line_size[k][l]
+                           -- check whether that line is greater or equal than the required size
+                           if linesz >= size then
+                              -- get random ngram from that line
+                              local n = torch.random(0,linesz-size)
+                             -- print(k,l,n,ngram:size())
+                              ffi.copy(ptr_ngram,list.doc[k][l]+n,size*ffi.sizeof(c_int))
+
+                              -- save right context
+                              for i=1,cxtsz do
+                                 if n-i<0 then
+                                    cxt[i]=padding
+                                 else
+                                    cxt[i]=list.doc[k][l][n-i]
+                                 end
+                              end
+
+                              -- save left context
+                              local endid = size+n-1
+                              for i=1,cxtsz do
+                                 if (endid+i)>=linesz then
+                                    cxt[i+cxtsz]=padding
+                                 else
+                                    cxt[i+cxtsz]=list.doc[k][l][endid+i]
+                                 end
+                              end
+
+                              break
+                           end
+                        end
+                        return ngram,cxt
+                     end
+
                      function data:sample_nounkn(t,size,unkn)
                            local ngram = t:resize(size)
                            if ngram:type()~="torch.IntTensor" then
@@ -264,6 +336,17 @@ setmetatable(wikidocu, {
                            end
                            return ngram
                         end
+
+
+                     function data:maxLineLength()
+                        local max=0
+                        for i=0,list.nline-1 do
+                           if list.full_line_size[i]>max then
+                              max = list.full_line_size[i]
+                           end
+                        end
+                        return max
+                     end
 
                      function data:struct()
                         return list
