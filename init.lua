@@ -246,7 +246,7 @@ setmetatable(wikidocu, {
                         local ptr_sent = sent:data()
                         ffi.copy(ptr_sent,list.doc[k][l],linesz*ffi.sizeof(c_int))
 
-                        return sent,k
+                        return sent,(k+1)
                      end
 
                      function data:sample_with_context(t,size,cxt,cxtsz,padding)
