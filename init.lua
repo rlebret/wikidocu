@@ -228,13 +228,6 @@ setmetatable(wikidocu, {
                      end
 
                      function data:sentence(s,size)
-                        local size = size or 128
-                        local sent = s:resize(size)
-                        if sent:type()~="torch.IntTensor" then
-                           sent = sent:int()
-                        end
-
-                        local ptr_sent = sent:data()
                         local k
                         if weight then
                            k = sampler()-1
@@ -243,6 +236,12 @@ setmetatable(wikidocu, {
                         end
                         -- get random line from that doc
                         local l = torch.random(list.doc_size[k])-1
+                        local sent = s:resize(l)
+                        if sent:type()~="torch.IntTensor" then
+                           sent = sent:int()
+                        end
+
+                        local ptr_sent = sent:data()
                         -- get line size
                         local linesz = list.line_size[k][l]
                         ffi.copy(ptr_sent,list.doc[k][l],linesz*ffi.sizeof(c_int))
