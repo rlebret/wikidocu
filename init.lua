@@ -229,7 +229,7 @@ setmetatable(wikidocu, {
 
                      function data:sentence(s,size)
                         local size = size or 128
-                        local sent = t:resize(size)
+                        local sent = s:resize(size)
                         if sent:type()~="torch.IntTensor" then
                            sent = sent:int()
                         end
