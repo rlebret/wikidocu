@@ -236,14 +236,14 @@ setmetatable(wikidocu, {
                         end
                         -- get random line from that doc
                         local l = torch.random(list.doc_size[k])-1
-                        local sent = s:resize(l)
+                        -- get line size
+                        local linesz = list.line_size[k][l]
+                        local sent = s:resize(linesz)
                         if sent:type()~="torch.IntTensor" then
                            sent = sent:int()
                         end
 
                         local ptr_sent = sent:data()
-                        -- get line size
-                        local linesz = list.line_size[k][l]
                         ffi.copy(ptr_sent,list.doc[k][l],linesz*ffi.sizeof(c_int))
 
                         return sent,k
